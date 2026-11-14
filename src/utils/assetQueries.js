@@ -69,3 +69,12 @@ export function summarizeAssets(assets, today = new Date()) {
   expiringSoon.sort((a, b) => a.warrantyExpiry.localeCompare(b.warrantyExpiry));
   return { total: assets.length, byStatus, byCategory, totalValue, expiringSoon };
 }
+
+/** Next asset tag in the IT-0000 sequence, based on the highest existing number. */
+export function nextAssetTag(assets) {
+  const highest = assets.reduce((max, asset) => {
+    const match = /^IT-(\d+)$/.exec(asset.assetTag ?? '');
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `IT-${String(highest + 1).padStart(4, '0')}`;
+}

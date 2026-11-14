@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AssetNotFound from '../components/AssetNotFound.jsx';
-import { useAssets } from '../context/AssetContext.jsx';
+import LoadState from '../components/LoadState.jsx';
+import useAsset from '../components/useAsset.js';
 import AssetTag from '../components/AssetTag.jsx';
 import { StatusBadge, WarrantyBadge } from '../components/Badges.jsx';
 import DeleteAssetDialog from '../components/DeleteAssetDialog.jsx';
@@ -10,15 +11,17 @@ import { formatCurrency, formatDate } from '../utils/format.js';
 
 export default function AssetDetailsPage() {
   const { id } = useParams();
-  const { getAsset } = useAssets();
+  const { asset, error, retry } = useAsset(id);
   const navigate = useNavigate();
   const onDeleted = useCallback(() => navigate('/assets'), [navigate]);
   const { pending, requestDelete, cancelDelete, confirmDelete } = useDeleteAsset(onDeleted);
-  const asset = getAsset(id);
 
-  if (!asset) return <AssetNotFound />;
+  if (error) return <LoadState error={error} onRetry={retry} />;
+  if (asset === null) return <AssetNotFound />;
+  if (asset === undefined) return <LoadState />;
 
   const rows = [
+    ['ID', <span className="mono" key="id">{asset.id}</span>],
     ['Category', asset.category],
     ['Serial number', <span className="mono" key="sn">{asset.serialNumber}</span>],
     ['Assigned to', asset.assignedTo || 'Unassigned'],

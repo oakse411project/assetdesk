@@ -96,3 +96,42 @@ npm test               # run once
 npm run test:watch     # re-run on every file change
 npm run test:coverage  # with coverage table (HTML report in coverage/)
 ```
+
+---
+
+# Part 2: backend and integration tests
+
+## Backend (JUnit 5 + Mockito), `cd backend && ./mvnw test`
+
+| Test class | Kind | What it covers | Tests |
+|---|---|---|---|
+| `service/AssetServiceTest` | Unit test, `@ExtendWith(MockitoExtension.class)` with `@Mock AssetRepository` and `@InjectMocks AssetService` | Paging and sorting parameters, unknown sort field, find by id (found / not found), create (saved / duplicate tag / duplicate serial), update (saved with same id / not found / duplicate tag / duplicate serial), delete (deleted / not found) | 14 |
+| `controller/AssetControllerTest` | Web-layer test, `@WebMvcTest` + `MockMvc` + `@MockitoBean AssetService` | Every route and status code: 200 page JSON, paging params, 400 bad sort / size / id, 200/404 by id, 201 + Location, 400 body with id, 400 invalid data, 409 duplicate, 204/404/409 update, 204/404 delete, CORS headers | 19 |
+| `AssetApiIntegrationTest` | `@SpringBootTest` + `MockMvc` against the real H2 database (fresh for each test) | Paging over the seeded data, sorting, find by id, add then read back from `Location`, duplicate → 409, update then read back, update unknown → 404, delete then 404 | 8 |
+| `AssetdeskApplicationTests` | `@SpringBootTest` | Application context starts | 1 |
+
+Result: **42 tests, 0 failures**.
+
+## Frontend (Vitest), `npm test`
+
+The UI tests now run against `src/test/fakeApi.js`, an in-memory copy of the server's behaviour (paging, 404, 409). They check that each screen sends the right API call:
+
+- the list asks for `page`/`size`/`sort`/`dir`
+- the add form sends a body without an `id`
+- the edit page sends `PUT` for the right id
+- delete sends `DELETE`
+
+`src/api/assetApi.test.js` tests the HTTP client itself with a mocked `fetch`: URLs, methods, reading the new id from `Location`, and error handling.
+
+Result: **67 tests, 0 failures**.
+
+## Manual end-to-end check
+
+The two apps were run together: Spring on port 3001 and Vite on port 5173. In the browser:
+
+- The list loaded 15 assets from the server and moved to page 2.
+- A new asset was added; the page opened at the id the server returned.
+- The location was edited and saved.
+- The asset was deleted.
+
+The browser console showed no errors.

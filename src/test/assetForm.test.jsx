@@ -13,34 +13,45 @@ async function fillValidAsset(user) {
   await user.type(screen.getByLabelText('Warranty ends'), '2029-10-01');
 }
 
+// The add page renders once the asset list has loaded from the server.
+const openAddPage = async () => {
+  const result = renderApp('/assets/new');
+  await screen.findByRole('heading', { level: 1, name: 'Add asset' });
+  return result;
+};
+
 describe('Adding an asset', () => {
-  it('suggests the next free tag', () => {
-    renderApp('/assets/new');
+  it('suggests the next free tag', async () => {
+    await openAddPage();
     expect(screen.getByLabelText('Asset tag')).toHaveValue('IT-0016');
   });
 
-  it('shows errors and does not save an empty form', async () => {
-    const { user } = renderApp('/assets/new');
+  it('shows errors and does not send an empty form', async () => {
+    const { user, api } = await openAddPage();
     await user.click(screen.getByRole('button', { name: 'Add asset' }));
     expect(screen.getByRole('alert')).toHaveTextContent(/Fix \d+ fields before saving/);
     expect(screen.getByText('Enter the brand.')).toBeInTheDocument();
     expect(screen.getByLabelText('Category')).toHaveFocus();
+    expect(api.calls.some(([name]) => name === 'createAsset')).toBe(false);
   });
 
-  it('adds a valid asset and opens its page', async () => {
-    const { user } = renderApp('/assets/new');
+  it('sends a valid asset to the server and opens its page', async () => {
+    const { user, api } = await openAddPage();
     await fillValidAsset(user);
     await user.click(screen.getByRole('button', { name: 'Add asset' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Lenovo ThinkPad T14' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Lenovo ThinkPad T14' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Added IT-0016');
+    const [, sent] = api.calls.find(([name]) => name === 'createAsset');
+    expect(sent).toMatchObject({ assetTag: 'IT-0016', brand: 'Lenovo', purchaseCost: 5200 });
+    expect(sent).not.toHaveProperty('id');
 
     await user.click(within(screen.getByRole('navigation', { name: 'Main menu' })).getByRole('link', { name: 'Assets' }));
-    expect(screen.getByText('Showing 16 of 16 assets')).toBeInTheDocument();
+    expect(await screen.findByText('Showing 1–10 of 16 assets')).toBeInTheDocument();
   });
 
-  it('rejects a duplicate serial number', async () => {
-    const { user } = renderApp('/assets/new');
+  it('rejects a duplicate serial number before calling the server', async () => {
+    const { user } = await openAddPage();
     await fillValidAsset(user);
     const serial = screen.getByLabelText('Serial number');
     await user.clear(serial);
@@ -49,8 +60,20 @@ describe('Adding an asset', () => {
     expect(screen.getByText('Another asset already has this serial number.')).toBeInTheDocument();
   });
 
+  it('shows the server error when the save fails', async () => {
+    const { user, api } = await openAddPage();
+    api.createAsset = async () => {
+      const { ApiError } = await import('../api/assetApi.js');
+      throw new ApiError(409, 'Another asset already uses this tag or serial number.');
+    };
+    await fillValidAsset(user);
+    await user.click(screen.getByRole('button', { name: 'Add asset' }));
+    expect(await screen.findByText(/Could not add the asset/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Add asset' })).toBeInTheDocument();
+  });
+
   it('requires a person when status is In use, and clears the error when fixed', async () => {
-    const { user } = renderApp('/assets/new');
+    const { user } = await openAddPage();
     await fillValidAsset(user);
     await user.selectOptions(screen.getByLabelText('Status'), 'In use');
     await user.click(screen.getByRole('button', { name: 'Add asset' }));
@@ -62,48 +85,53 @@ describe('Adding an asset', () => {
 });
 
 describe('Viewing and editing an asset', () => {
-  it('shows the asset details', () => {
-    renderApp('/assets/a8');
-    expect(screen.getByRole('heading', { level: 1, name: 'Dell PowerEdge R760' })).toBeInTheDocument();
+  it('loads the asset details by id', async () => {
+    const { api } = renderApp('/assets/8');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dell PowerEdge R760' })).toBeInTheDocument();
     expect(screen.getByText('PER760-0093X')).toBeInTheDocument();
     expect(screen.getByText('Hosts internal file shares.')).toBeInTheDocument();
+    expect(api.calls).toContainEqual(['getAssetById', '8']);
   });
 
-  it('updates an asset', async () => {
-    const { user } = renderApp('/assets/a7/edit');
-    expect(screen.getByLabelText('Model')).toHaveValue('iPad Air 11"');
+  it('updates an asset on the server', async () => {
+    const { user, api } = renderApp('/assets/7/edit');
+    expect(await screen.findByLabelText('Model')).toHaveValue('iPad Air 11"');
 
     await user.selectOptions(screen.getByLabelText('Status'), 'In use');
     await user.type(screen.getByLabelText(/Assigned to/), 'Reem Alfaisal');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
+    expect(await screen.findByText('Reem Alfaisal')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Saved changes to IT-0007');
-    expect(screen.getByText('Reem Alfaisal')).toBeInTheDocument();
     expect(screen.getAllByText('In use').length).toBeGreaterThan(0);
+    const [, id, sent] = api.calls.find(([name]) => name === 'updateAsset');
+    expect(id).toBe(7);
+    expect(sent).toMatchObject({ status: 'In use', assignedTo: 'Reem Alfaisal' });
   });
 
   it('deletes from the details page and returns to the list', async () => {
-    const { user } = renderApp('/assets/a11');
-    await user.click(screen.getByRole('button', { name: 'Delete asset' }));
+    const { user } = renderApp('/assets/11');
+    await user.click(await screen.findByRole('button', { name: 'Delete asset' }));
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete asset' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Assets' })).toBeInTheDocument();
-    expect(screen.getByText('Showing 14 of 14 assets')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Assets' })).toBeInTheDocument();
+    expect(await screen.findByText('Showing 1–10 of 14 assets')).toBeInTheDocument();
   });
 
-  it('handles an unknown asset id', () => {
-    renderApp('/assets/missing');
-    expect(screen.getByRole('heading', { name: 'Asset not found' })).toBeInTheDocument();
+  it('handles an unknown asset id', async () => {
+    renderApp('/assets/999');
+    expect(await screen.findByRole('heading', { name: 'Asset not found' })).toBeInTheDocument();
   });
 
-  it('handles editing an unknown asset id', () => {
-    renderApp('/assets/missing/edit');
-    expect(screen.getByRole('heading', { name: 'Asset not found' })).toBeInTheDocument();
+  it('handles editing an unknown asset id', async () => {
+    renderApp('/assets/999/edit');
+    expect(await screen.findByRole('heading', { name: 'Asset not found' })).toBeInTheDocument();
   });
 
   it('cancelling an edit returns to the details page unchanged', async () => {
-    const { user } = renderApp('/assets/a1/edit');
-    await user.clear(screen.getByLabelText('Brand'));
+    const { user, api } = renderApp('/assets/1/edit');
+    await user.clear(await screen.findByLabelText('Brand'));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Dell Latitude 7440' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dell Latitude 7440' })).toBeInTheDocument();
+    expect(api.calls.some(([name]) => name === 'updateAsset')).toBe(false);
   });
 });

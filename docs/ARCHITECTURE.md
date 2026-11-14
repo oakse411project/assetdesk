@@ -1,110 +1,156 @@
 # Architecture and technology stack
 
-## 1. Technology stack
+AssetDesk has two parts that talk over HTTP/JSON:
 
-| Layer | Technology | Version | Why |
+- a **React frontend** (Part 1), served by Vite on port 5173
+- a **Java Spring server** (Part 2) on port 3001, storing data in an H2 database
+
+## 1. Overall architecture
+
+```
+ ┌──────────────────────────── Browser ────────────────────────────┐
+ │  React app (Vite, http://localhost:5173)                        │
+ │                                                                 │
+ │   Pages (Dashboard, Assets, Add, Details, Edit, About)          │
+ │        │  useAssets() / useAsset(id)                            │
+ │        ▼                                                        │
+ │   AssetContext  ── holds the loaded assets, add/update/delete   │
+ │        │                                                        │
+ │        ▼                                                        │
+ │   api/assetApi.js  ── fetch() calls, errors → ApiError          │
+ └────────┼────────────────────────────────────────────────────────┘
+          │  HTTP + JSON   GET / POST / PUT / DELETE /api/v1/assets
+          ▼
+ ┌──────────────── Spring Boot server (http://localhost:3001) ─────┐
+ │                                                                 │
+ │   AssetController   @RestController  /api/v1/assets             │
+ │     - maps routes, validates input (@Valid, @Positive, @Min)    │
+ │     - turns results/exceptions into status codes                │
+ │        │                                                        │
+ │        ▼                                                        │
+ │   AssetService      @Service                                    │
+ │     - paging and sorting, duplicate checks                      │
+ │     - throws ObjectNotFoundException / DuplicateAssetException  │
+ │        │                                                        │
+ │        ▼                                                        │
+ │   AssetRepository   CrudRepository + PagingAndSortingRepository │
+ │        │            (Spring Data JDBC)                          │
+ │        ▼                                                        │
+ │   H2 in-memory database   schema.sql + data.sql (15 assets)     │
+ └─────────────────────────────────────────────────────────────────┘
+```
+
+The REST routes are listed in [API.md](API.md).
+
+## 2. Technology stack
+
+### Backend (`backend/`)
+
+| Layer | Technology | Version |
+|---|---|---|
+| Language | Java | 21 |
+| Framework | Spring Boot (`spring-boot-starter-webmvc`) | 4.1.2 |
+| Data access | Spring Data JDBC (`spring-boot-starter-data-jdbc`) | from Boot 4.1.2 |
+| Database | H2, in memory, created from `schema.sql` and filled from `data.sql` | from Boot 4.1.2 |
+| Validation | Jakarta Bean Validation (`spring-boot-starter-validation`) | from Boot 4.1.2 |
+| Tests | JUnit 5, Mockito, Spring MockMvc (`spring-boot-starter-webmvc-test`) | from Boot 4.1.2 |
+| Build | Maven (wrapper included: `mvnw`) | – |
+
+### Frontend
+
+| Layer | Technology | Version |
+|---|---|---|
+| UI library | React | 18.3.1 |
+| Routing | React Router (`react-router-dom`) | 7.18.4 |
+| Build tool / dev server | Vite | 8.3.2 |
+| HTTP | `fetch` (built into the browser) | – |
+| State | React Context | built in |
+| Tests | Vitest + React Testing Library + jsdom | 5.0.3 / 16.1.0 |
+
+## 3. Backend structure
+
+```
+backend/src/main/java/edu/psu/se411/assetdesk/
+  AssetdeskApplication.java        @SpringBootApplication entry point
+  model/Asset.java                 Java record + validation annotations
+  repository/AssetRepository.java  CrudRepository + PagingAndSortingRepository,
+                                   plus existsBy... queries for duplicates
+  service/AssetService.java        business logic
+  controller/AssetController.java  REST routes
+  exception/ObjectNotFoundException.java
+  exception/DuplicateAssetException.java
+backend/src/main/resources/
+  application.properties           server.port=3001
+  schema.sql                       CREATE TABLE asset (...)
+  data.sql                         the 15 sample assets
+```
+
+The layering follows the course labs: the controller only talks to the service, the service only talks to the repository, and each class receives what it needs through its constructor.
+
+| Request | Controller | Service | Repository |
 |---|---|---|---|
-| UI library | React | 18.3.1 | Required by the project; component model and hooks |
-| Routing | React Router (`react-router-dom`) | 7.18.4 | Menu navigation, URL per screen, filters kept in the URL |
-| Build tool / dev server | Vite | 8.3.2 | Fast dev server and production build |
-| State | React Context + `useReducer` | built in | Enough for one shared collection; no extra library needed |
-| Styling | Plain CSS with custom properties | – | One stylesheet with design tokens; no CSS framework |
-| Unit / integration tests | Vitest + React Testing Library + jsdom | 5.0.3 / 16.1.0 | Fast tests that use the same config as Vite |
-| User simulation | `@testing-library/user-event` | 14.5.2 | Realistic typing and clicking in tests |
-| Coverage | `@vitest/coverage-v8` | 5.0.3 | Coverage report |
-| Runtime | Node.js | 20+ (checked on 22 and 24) | Runs the tooling |
+| GET all (paged) | `getAllAssets(page, size, sort, dir)` | `getAllAssets(...)` builds a `PageRequest` | `findAll(Pageable)` |
+| GET by id | `getAssetById(id)` | `getAssetById(id)` | `findById(id)` |
+| POST | `createAsset(asset, ucb)` | `createAsset(asset)` | `existsByAssetTag`, `existsBySerialNumber`, `save` |
+| PUT | `updateAsset(id, asset)` | `updateAsset(id, asset)` | `findById`, `existsBy...AndIdNot`, `save` |
+| DELETE | `deleteAsset(id)` | `deleteAsset(id)` | `findById`, `deleteById` |
 
-All dependency versions are pinned exactly. `npm audit` reports **0 vulnerabilities** (see the [code review](CODE_REVIEW.md)).
+Errors are handled the same way as in the labs:
 
-## 2. High-level structure
+- The service throws `ObjectNotFoundException` or `DuplicateAssetException`.
+- The controller catches them and returns **404** or **409**.
+- Invalid bodies and parameters are rejected with **400** by `@Valid` and the constraint annotations.
 
-```
-                        main.jsx
-                           |
-                     <BrowserRouter>
-                           |
-                         App.jsx
-                           |
-                    <ToastProvider>        messages ("Added IT-0016")
-                           |
-                    <AssetProvider>        asset collection + CRUD functions
-                           |
-                       <AppRoutes>
-                           |
-                        <Layout>           sidebar menu + <Outlet>
-                           |
-   +-----------+-----------+-----------+-----------+-----------+
-   |           |           |           |           |           |
-Dashboard   Assets     AddAsset   AssetDetails EditAsset    About
-   |           |           |           |           |
-   |           |           +-----+-----+-----+-----+
-   |           |                 |           |
-   |           |            <AssetForm>  useDeleteAsset + <DeleteAssetDialog>
-   |           |
-   +-----------+---- shared: <AssetTag>, <StatusBadge>, <WarrantyBadge>
-
-   Pure logic (no React):  utils/assetReducer.js   utils/validation.js
-                           utils/assetQueries.js   utils/format.js
-   Static data:            data/seedAssets.js  data/constants.js  data/team.js
-```
-
-## 3. Routes
-
-| Path | Screen |
-|---|---|
-| `/` | Dashboard |
-| `/assets` | Asset list. Accepts `?q=`, `?category=`, `?status=`, `?sort=` and `?dir=` |
-| `/assets/new` | Add asset |
-| `/assets/:id` | Asset details |
-| `/assets/:id/edit` | Edit asset |
-| `/about` | About and team |
-| `*` | Page not found |
-
-Search and filter values are stored in the URL. This lets dashboard links open a pre-filtered list, and the browser Back button restores the previous search.
-
-## 4. Data flow
+## 4. Frontend structure
 
 ```
- user action ──► page component ──► useAssets().addAsset / updateAsset / deleteAsset
-                                             │
-                                             ▼
-                                 dispatch({ type, payload })
-                                             │
-                                             ▼
-                           assetReducer(state, action) → new array
-                                             │
-                                             ▼
-                   React re-renders every component that uses useAssets()
+src/
+  api/assetApi.js        REST client: getAssetPage, getAllAssets, getAssetById,
+                         createAsset, updateAsset, deleteAsset
+  context/AssetContext   loads all assets from the server; add/update/delete call the API, then reload
+  components/useAsset    loads one asset by id (details and edit pages)
+  components/LoadState   "Loading…" and "Cannot reach the server" screens
+  pages/                 one component per screen
+  utils/                 validation, search/sort, dashboard summary, formatting (unchanged from Part 1)
+  test/                  UI tests, fake in-memory API, test data
 ```
 
-1. **The collection** is an array of plain objects, initialised from `data/seedAssets.js`. This is the "collection of objects" required for Part 1.
-2. **`AssetContext`** wraps the array in `useReducer` and exposes:
-   - `assets`
-   - `addAsset(values)`
-   - `updateAsset(id, values)`
-   - `deleteAsset(id)`
-   - `getAsset(id)`
-3. **`assetReducer`** is a pure function that returns a new array for `ADD_ASSET`, `UPDATE_ASSET` and `DELETE_ASSET`. It never mutates state.
-4. **Validation** (`validateAsset`) runs in the form before anything is saved. It checks the current collection to keep tags and serial numbers unique.
-5. **Search, filter, sort and dashboard summaries** (`assetQueries.js`) are pure functions of the collection. Pages call them inside `useMemo` or on render.
+### Data flow
+
+```
+ user clicks "Add asset"
+   → AddAssetPage → useAssets().addAsset(values)
+   → assetApi.createAsset → POST /api/v1/assets → 201 + Location: /api/v1/assets/16
+   → AssetContext reloads the list → page navigates to /assets/16
+   → AssetDetailsPage → useAsset(16) → GET /api/v1/assets/16 → shows the asset
+```
+
+### Pagination and search
+
+- **Asset list without filters:** the server does the paging. The page asks for `GET /api/v1/assets?page=N&size=10&sort=…&dir=…` and shows Previous/Next buttons. The page number is kept in the URL (`/assets?page=2`).
+- **With a search or a filter** (free text, category, status): the list searches the full collection already loaded by `AssetContext`, then splits the results into pages of 10 the same way. This keeps the Part 1 search unchanged.
+- **Find by ID:** the box on the Assets page opens `/assets/{id}`, which calls `GET /api/v1/assets/{id}`.
+
+### Frontend routes
+
+| Path | Screen | API calls |
+|---|---|---|
+| `/` | Dashboard | GET all (one large page) |
+| `/assets` | Asset list (`?page=`, `?q=`, `?category=`, `?status=`, `?sort=`, `?dir=`) | GET page |
+| `/assets/new` | Add asset | POST |
+| `/assets/:id` | Asset details | GET by id, DELETE |
+| `/assets/:id/edit` | Edit asset | GET by id, PUT |
+| `/about` | About and team | – |
 
 ## 5. Key design decisions
 
 | Decision | Reason |
 |---|---|
-| Context + reducer instead of Redux or Zustand | One collection and three operations do not justify an extra library |
-| Business logic kept out of components | Easy to unit-test, and Part 2 can reuse validation and queries unchanged |
-| One `AssetForm` for both add and edit | Avoids duplicating fields and validation |
-| `useDeleteAsset` hook + `DeleteAssetDialog` | The same confirm-then-delete flow is shared by the list and the details page |
-| `AssetProvider` accepts `initialAssets` | Each test starts from known data |
-| Router added in `main.jsx`, not in `App` | Tests wrap `App` in a `MemoryRouter` at any URL |
-| Plain CSS with tokens | The design is small and specific, so a framework would add weight without benefit |
-
-## 6. Moving to Part 2 (backend)
-
-Only `AssetContext.jsx` needs to change:
-
-- Load the initial list with `fetch('/api/assets')` instead of the seed file.
-- Make `addAsset`, `updateAsset` and `deleteAsset` call `POST`, `PUT` and `DELETE` endpoints, then dispatch the same reducer actions with the server's response.
-- Keep `validateAsset` on the client for instant feedback, and repeat the same rules on the server.
-- Pages, components, the reducer and the query functions can stay as they are.
+| Lab 14 layering (controller → service → repository) and status codes (201 + Location, 204, 404) | Matches the course's REST conventions |
+| Validation on both sides | The client gives instant feedback; the server is the real guard (Bean Validation + duplicate checks + `UNIQUE` columns) |
+| The request body must not contain an `id` | The id comes from the database (POST) or the URL (PUT), as in Lab 14 |
+| Whitelist of sort fields | A bad `sort` value returns 400 instead of a database error |
+| `@CrossOrigin` limited to `http://localhost:5173` | Only the React dev server may call the API from a browser |
+| `PagedModel` for the page response | Spring Data's stable JSON format for pages (`content` + `page`) |
+| Frontend `api` object injectable into `AssetProvider` | UI tests run against an in-memory fake with the same behaviour as the server |
+| H2 in-memory database | No installation needed. Data resets on every server restart, so demos always start from the 15 sample assets |

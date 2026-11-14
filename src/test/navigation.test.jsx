@@ -15,13 +15,13 @@ describe('Menu navigation', () => {
     const { user } = renderApp('/');
     const menu = screen.getByRole('navigation', { name: 'Main menu' });
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
 
     await user.click(within(menu).getByRole('link', { name: 'Assets' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Assets' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Assets' })).toBeInTheDocument();
 
     await user.click(within(menu).getByRole('link', { name: 'Add asset' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Add asset' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Add asset' })).toBeInTheDocument();
 
     await user.click(within(menu).getByRole('link', { name: 'About' }));
     expect(screen.getByRole('heading', { level: 1, name: 'About AssetDesk' })).toBeInTheDocument();

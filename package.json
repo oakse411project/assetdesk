@@ -2,7 +2,7 @@
   "name": "assetdesk",
   "private": true,
   "version": "1.0.0",
-  "description": "AssetDesk - IT equipment inventory manager (SE411 Project, Part 1)",
+  "description": "AssetDesk - IT equipment inventory manager (SE411 Project, React frontend for the Spring server)",
   "type": "module",
   "scripts": {
     "dev": "vite",

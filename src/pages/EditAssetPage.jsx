@@ -1,22 +1,30 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import AssetNotFound from '../components/AssetNotFound.jsx';
+import LoadState from '../components/LoadState.jsx';
+import useAsset from '../components/useAsset.js';
 import { useAssets } from '../context/AssetContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import AssetForm from '../components/AssetForm.jsx';
 
 export default function EditAssetPage() {
   const { id } = useParams();
-  const { assets, getAsset, updateAsset } = useAssets();
+  const { assets, status, updateAsset } = useAssets();
+  const { asset, error, retry } = useAsset(id);
   const { notify } = useToast();
   const navigate = useNavigate();
-  const asset = getAsset(id);
 
-  if (!asset) return <AssetNotFound />;
+  if (error) return <LoadState error={error} onRetry={retry} />;
+  if (asset === null) return <AssetNotFound />;
+  if (asset === undefined || status !== 'ready') return <LoadState />;
 
-  const handleSubmit = (values) => {
-    updateAsset(id, values);
-    notify(`Saved changes to ${values.assetTag.trim().toUpperCase()}`);
-    navigate(`/assets/${id}`);
+  const handleSubmit = async (values) => {
+    try {
+      await updateAsset(asset.id, values);
+      notify(`Saved changes to ${values.assetTag.trim().toUpperCase()}`);
+      navigate(`/assets/${asset.id}`);
+    } catch (err) {
+      notify(`Could not save: ${err.message}`);
+    }
   };
 
   return (
@@ -28,10 +36,10 @@ export default function EditAssetPage() {
       <AssetForm
         initialValues={{ ...asset, purchaseCost: String(asset.purchaseCost) }}
         assets={assets}
-        currentId={id}
+        currentId={asset.id}
         submitLabel="Save changes"
         onSubmit={handleSubmit}
-        onCancel={() => navigate(`/assets/${id}`)}
+        onCancel={() => navigate(`/assets/${asset.id}`)}
       />
     </div>
   );
