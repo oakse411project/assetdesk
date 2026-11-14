@@ -3,6 +3,7 @@ const team = [
   { name: 'Omar Moustafa Aleraky', studentId: '223211469' },
   { name: 'Khaled Samer Abdou', studentId: '223110669' },
   { name: 'Ahmed Sabbah Quraiba', studentId: '220110509' },
+  { name: 'Meshal Alaqil', studentId: '222111251' },
 ];
 
 export default team;

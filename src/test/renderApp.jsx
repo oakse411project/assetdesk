@@ -2,15 +2,19 @@ import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App.jsx';
-import seedAssets from '../data/seedAssets.js';
+import seedAssets from './seedAssets.js';
+import { createFakeApi } from './fakeApi.js';
 
-/** Renders the full app at a given URL with a fresh copy of the data. */
-export function renderApp(route = '/', initialAssets = seedAssets) {
+/**
+ * Renders the full app at a given URL, backed by an in-memory fake of the Spring API.
+ * Pass `api` to use a custom fake (for example one that fails).
+ */
+export function renderApp(route = '/', { assets = seedAssets, api = createFakeApi(assets) } = {}) {
   const user = userEvent.setup();
   const utils = render(
     <MemoryRouter initialEntries={[route]}>
-      <App initialAssets={initialAssets.map((a) => ({ ...a }))} />
+      <App api={api} />
     </MemoryRouter>,
   );
-  return { user, ...utils };
+  return { user, api, ...utils };
 }

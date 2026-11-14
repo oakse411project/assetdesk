@@ -27,10 +27,10 @@ export function AppRoutes() {
 }
 
 /** Providers + routes. The router itself is added in main.jsx (or by tests). */
-export default function App({ initialAssets }) {
+export default function App({ api }) {
   return (
     <ToastProvider>
-      <AssetProvider initialAssets={initialAssets}>
+      <AssetProvider api={api}>
         <AppRoutes />
       </AssetProvider>
     </ToastProvider>

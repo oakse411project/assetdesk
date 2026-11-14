@@ -1,44 +1,67 @@
-import { createContext, useCallback, useContext, useMemo, useReducer } from 'react';
-import seedAssets from '../data/seedAssets.js';
-import { ACTIONS, assetReducer, createId } from '../utils/assetReducer.js';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import defaultApi from '../api/assetApi.js';
 import { normalizeAsset } from '../utils/validation.js';
 
 const AssetContext = createContext(null);
 
-// Converts raw form values into a stored asset (trimmed strings, numeric cost).
 function toAsset(values) {
   const clean = normalizeAsset(values);
   return { ...clean, purchaseCost: Number(clean.purchaseCost) };
 }
 
-/**
- * Holds the in-memory asset collection and exposes CRUD operations.
- * `initialAssets` can be overridden (used by tests).
- */
-export function AssetProvider({ children, initialAssets = seedAssets }) {
-  const [assets, dispatch] = useReducer(assetReducer, initialAssets);
 
-  const addAsset = useCallback((values) => {
-    const asset = { ...toAsset(values), id: createId() };
-    dispatch({ type: ACTIONS.ADD, payload: asset });
-    return asset;
-  }, []);
+export function AssetProvider({ children, api = defaultApi }) {
+  const [assets, setAssets] = useState([]);
+  const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [error, setError] = useState(null);
 
-  const updateAsset = useCallback((id, values) => {
-    const asset = { ...toAsset(values), id };
-    dispatch({ type: ACTIONS.UPDATE, payload: asset });
-    return asset;
-  }, []);
+  const reload = useCallback(async () => {
+    try {
+      const all = await api.getAllAssets();
+      setAssets(all);
+      setStatus('ready');
+      setError(null);
+    } catch (err) {
+      setError(err);
+      setStatus('error');
+    }
+  }, [api]);
 
-  const deleteAsset = useCallback((id) => {
-    dispatch({ type: ACTIONS.DELETE, payload: id });
-  }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
-  const getAsset = useCallback((id) => assets.find((a) => a.id === id), [assets]);
+  const addAsset = useCallback(
+    async (values) => {
+      const asset = toAsset(values);
+      const id = await api.createAsset(asset);
+      await reload();
+      return { ...asset, id };
+    },
+    [api, reload],
+  );
+
+  const updateAsset = useCallback(
+    async (id, values) => {
+      const asset = toAsset(values);
+      await api.updateAsset(id, asset);
+      await reload();
+      return { ...asset, id };
+    },
+    [api, reload],
+  );
+
+  const deleteAsset = useCallback(
+    async (id) => {
+      await api.deleteAsset(id);
+      await reload();
+    },
+    [api, reload],
+  );
 
   const value = useMemo(
-    () => ({ assets, addAsset, updateAsset, deleteAsset, getAsset }),
-    [assets, addAsset, updateAsset, deleteAsset, getAsset],
+    () => ({ assets, status, error, reload, addAsset, updateAsset, deleteAsset, api }),
+    [assets, status, error, reload, addAsset, updateAsset, deleteAsset, api],
   );
 
   return <AssetContext.Provider value={value}>{children}</AssetContext.Provider>;

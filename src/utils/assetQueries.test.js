@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, filterAssets, sortAssets, summarizeAssets, warrantyState } from './assetQueries.js';
-import seedAssets from '../data/seedAssets.js';
+import { daysUntil, filterAssets, nextAssetTag, sortAssets, summarizeAssets, warrantyState } from './assetQueries.js';
+import seedAssets from '../test/seedAssets.js';
 
 describe('filterAssets', () => {
   it('returns everything with no filters', () => {
@@ -75,5 +75,16 @@ describe('summarizeAssets', () => {
 
   it('lists warranties ending within 90 days, soonest first', () => {
     expect(summary.expiringSoon.map((a) => a.assetTag)).toEqual(['IT-0007', 'IT-0002', 'IT-0009']);
+  });
+});
+
+describe('nextAssetTag', () => {
+  it('continues after the highest tag number', () => {
+    expect(nextAssetTag([{ assetTag: 'IT-0002' }, { assetTag: 'IT-0010' }])).toBe('IT-0011');
+  });
+
+  it('starts at IT-0001 for an empty list and ignores odd tags', () => {
+    expect(nextAssetTag([])).toBe('IT-0001');
+    expect(nextAssetTag([{ assetTag: 'LEGACY-9' }])).toBe('IT-0001');
   });
 });

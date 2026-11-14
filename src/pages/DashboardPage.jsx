@@ -4,11 +4,12 @@ import { useAssets } from '../context/AssetContext.jsx';
 import { STATUSES, STATUS_CLASS } from '../data/constants.js';
 import { summarizeAssets } from '../utils/assetQueries.js';
 import { formatCurrency } from '../utils/format.js';
+import LoadState from '../components/LoadState.jsx';
 import AssetTag from '../components/AssetTag.jsx';
 import { StatusBadge, WarrantyBadge } from '../components/Badges.jsx';
 
 export default function DashboardPage() {
-  const { assets } = useAssets();
+  const { assets, status } = useAssets();
   const { summary, attention, categories } = useMemo(() => {
     const result = summarizeAssets(assets);
     const underRepair = assets.filter((a) => a.status === 'Under repair');
@@ -19,6 +20,8 @@ export default function DashboardPage() {
     };
   }, [assets]);
   const maxCategory = categories[0]?.[1] ?? 1;
+
+  if (status !== 'ready') return <LoadState />;
 
   return (
     <div className="page">
