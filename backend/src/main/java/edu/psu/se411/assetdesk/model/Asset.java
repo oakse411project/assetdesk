@@ -11,9 +11,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
-/**
- * One piece of IT equipment. The fields match the asset form of the React frontend.
- */
 public record Asset (
 		@Id
 		@PositiveOrZero(message = "id cannot be negative")

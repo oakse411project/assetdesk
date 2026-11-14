@@ -4,18 +4,12 @@ import { normalizeAsset } from '../utils/validation.js';
 
 const AssetContext = createContext(null);
 
-// Converts raw form values into the shape the server expects (trimmed strings, numeric cost).
 function toAsset(values) {
   const clean = normalizeAsset(values);
   return { ...clean, purchaseCost: Number(clean.purchaseCost) };
 }
 
-/**
- * Loads the asset collection from the Spring server and exposes the CRUD operations.
- * `assets` holds every asset (used by the dashboard, search and duplicate checks);
- * the Assets list asks the server for one page at a time through `api.getAssetPage`.
- * `api` can be replaced (tests pass an in-memory fake).
- */
+
 export function AssetProvider({ children, api = defaultApi }) {
   const [assets, setAssets] = useState([]);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'

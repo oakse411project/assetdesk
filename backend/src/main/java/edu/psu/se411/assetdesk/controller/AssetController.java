@@ -31,7 +31,6 @@ import edu.psu.se411.assetdesk.service.AssetService;
 
 @RestController
 @RequestMapping("/api/v1/assets")
-// The React app runs on the Vite dev server (port 5173). Location is exposed so it can read the id of a new asset.
 @CrossOrigin(origins = "http://localhost:5173", exposedHeaders = "Location")
 public class AssetController {
 

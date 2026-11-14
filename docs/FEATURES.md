@@ -95,7 +95,7 @@ The sidebar menu links to **Dashboard**, **Assets**, **Add asset** and **About**
 
 ![About page](screenshots/about.png)
 
-- **Team:** lists the three team members with their student IDs.
+- **Team:** lists the four team members with their student IDs.
 - **About the app:** a short description of what the app does and how it is built.
 
 ## Other behaviour

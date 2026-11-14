@@ -51,7 +51,6 @@ class AssetControllerTest {
 				LocalDate.of(2027, 2, 11), "In use", "");
 	}
 
-	// A valid request body without an id.
 	private static final String VALID_JSON = """
 			{
 			  "assetTag": "IT-0016",
@@ -74,7 +73,6 @@ class AssetControllerTest {
 		return VALID_JSON.replace("{", "{ \"id\": 5,");
 	}
 
-	// ---------- GET /api/v1/assets ----------
 
 	@Test
 	void getAllAssetsReturnsAPageOfAssets() throws Exception {
@@ -119,7 +117,6 @@ class AssetControllerTest {
 		verifyNoInteractions(assetService);
 	}
 
-	// ---------- GET /api/v1/assets/{id} ----------
 
 	@Test
 	void getAssetByIdReturnsTheAsset() throws Exception {
@@ -147,7 +144,6 @@ class AssetControllerTest {
 		verifyNoInteractions(assetService);
 	}
 
-	// ---------- POST /api/v1/assets ----------
 
 	@Test
 	void createAssetReturnsCreatedWithTheLocationOfTheNewAsset() throws Exception {
@@ -183,7 +179,6 @@ class AssetControllerTest {
 				.andExpect(status().isConflict());
 	}
 
-	// ---------- PUT /api/v1/assets/{id} ----------
 
 	@Test
 	void updateAssetReturnsNoContent() throws Exception {
@@ -225,7 +220,6 @@ class AssetControllerTest {
 				.andExpect(status().isConflict());
 	}
 
-	// ---------- DELETE /api/v1/assets/{id} ----------
 
 	@Test
 	void deleteAssetReturnsNoContent() throws Exception {
@@ -242,7 +236,6 @@ class AssetControllerTest {
 				.andExpect(status().isNotFound());
 	}
 
-	// ---------- CORS ----------
 
 	@Test
 	void allowsTheReactDevServerAndExposesLocation() throws Exception {

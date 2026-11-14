@@ -6,7 +6,7 @@ import team from '../data/team.js';
 describe('About page', () => {
   it('lists every team member with their student id', () => {
     renderApp('/about');
-    expect(team).toHaveLength(3);
+    expect(team).toHaveLength(4);
     for (const member of team) {
       expect(screen.getByText(member.name)).toBeInTheDocument();
       expect(screen.getByText(member.studentId)).toBeInTheDocument();

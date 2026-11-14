@@ -16,10 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
-/**
- * Runs the whole server (controller + service + repository + H2 with data.sql)
- * to check that the layers work together. Each test gets a fresh database.
- */
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)

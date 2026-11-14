@@ -45,7 +45,6 @@ class AssetServiceTest {
 				"In use", "");
 	}
 
-	// ---------- getAllAssets ----------
 
 	@Test
 	void getAllAssetsAsksTheRepositoryForTheRequestedPage() {
@@ -78,7 +77,6 @@ class AssetServiceTest {
 		verify(assetRepository, never()).findAll(any(Pageable.class));
 	}
 
-	// ---------- getAssetById ----------
 
 	@Test
 	void getAssetByIdReturnsTheAssetWhenItExists() {
@@ -95,7 +93,6 @@ class AssetServiceTest {
 		assertThat(assetService.getAssetById(99L)).isEmpty();
 	}
 
-	// ---------- createAsset ----------
 
 	@Test
 	void createAssetSavesANewAsset() {
@@ -127,7 +124,6 @@ class AssetServiceTest {
 		verify(assetRepository, never()).save(any());
 	}
 
-	// ---------- updateAsset ----------
 
 	@Test
 	void updateAssetSavesTheNewValuesUnderTheSameId() {
@@ -177,7 +173,6 @@ class AssetServiceTest {
 		verify(assetRepository, never()).save(any());
 	}
 
-	// ---------- deleteAsset ----------
 
 	@Test
 	void deleteAssetDeletesAnExistingAsset() {

@@ -16,6 +16,7 @@ This is the SE411 project (Fall 2026–27):
 | Omar Moustafa Aleraky | 223211469 |
 | Khaled Samer Abdou | 223110669 |
 | Ahmed Sabbah Quraiba | 220110509 |
+| Meshal Alaqil | 222111251 |
 
 ## Features
 

@@ -16,7 +16,6 @@ import edu.psu.se411.assetdesk.repository.AssetRepository;
 @Service
 public class AssetService {
 
-	// Only these fields can be used to sort the list (they are the list's columns).
 	public static final Set<String> SORT_FIELDS = Set.of("id", "assetTag", "brand", "assignedTo", "status", "warrantyExpiry");
 
 	private AssetRepository assetRepository;
